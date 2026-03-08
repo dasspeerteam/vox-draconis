@@ -880,6 +880,15 @@
         }
 
         document.addEventListener('DOMContentLoaded', init);
+        
+        // Sicherstellen, dass Daten beim Laden angezeigt werden
+        window.addEventListener('load', () => {
+            if (currentData.length === 0) {
+                currentData = [...CRAFTING_DATA];
+                applyFilters();
+            }
+            renderTable();
+        });
     </script>
 </body>
 </html>
