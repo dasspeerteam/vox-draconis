@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VOX DRACONIS - WoW Gilde</title>
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://vox-draconis.netlify.app/" />
+    <meta property="og:title" content="VOX DRACONIS - WoW Gilde" />
+    <meta property="og:description" content="Ü30++ WoW Gilde - Entspannte Community mit M+12, Raid Normal & HC. Alles kann, nichts muss!" />
+    <meta property="og:image" content="./og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="de_DE" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://vox-draconis.netlify.app/" />
+    <meta property="twitter:title" content="VOX DRACONIS - WoW Gilde" />
+    <meta property="twitter:description" content="Ü30++ WoW Gilde - Entspannte Community mit M+12, Raid Normal & HC. Alles kann, nichts muss!" />
+    <meta property="twitter:image" content="/og-image.png" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="./guild-emblem.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <!-- Secret Crafting Link -->
+    <div id="secret-crafting-link" style="position: fixed; top: 10px; left: 10px; z-index: 99999; cursor: pointer; opacity: 0.6; transition: opacity 0.3s; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 10px;" onclick="checkPassword()" title="🔒 Crafting Bereich">
+      <img src="Crafting%20Vox.png" alt="." style="width: 55px; height: 55px; border-radius: 8px; box-shadow: 0 3px 10px rgba(0,0,0,0.5); display: block;">
+    </div>
+    
+    <script>
+      // Hover-Effekt
+      document.getElementById('secret-crafting-link').addEventListener('mouseenter', function() {
+        this.style.opacity = '0.8';
+      });
+      document.getElementById('secret-crafting-link').addEventListener('mouseleave', function() {
+        this.style.opacity = '0.3';
+      });
+      
+      // Passwort-Prüfung
+      function checkPassword() {
+        const password = prompt('🔐 Passwort eingeben:');
+        if (password === null) return; // Abbruch
+        
+        // Trim Leerzeichen und konvertiere zu Kleinbuchstaben
+        const cleanPassword = password.trim().toLowerCase();
+        
+        if (cleanPassword === 'vox') {
+          window.location.href = './crafting/index.html';
+        } else if (cleanPassword !== '') {
+          alert('❌ Falsches Passwort!');
+        }
+      }
+    </script>
+    
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
