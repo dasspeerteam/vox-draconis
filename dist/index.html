@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vox Draconis Crafting Manager</title>
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        
+        // ==================================================================
+        // FIREBASE KONFIGURATION - VOX DRACONIS
+        // ==================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBXhMfQRLyYqjnkPv2MyodiNu5sptwcthA",
+            authDomain: "vox-draconis-crafting-a6047.firebaseapp.com",
+            projectId: "vox-draconis-crafting-a6047",
+            storageBucket: "vox-draconis-crafting-a6047.firebasestorage.app",
+            messagingSenderId: "1049871846574",
+            appId: "1:1049871846574:web:8bbe4fd49a2da548e1313f"
+        };
+        // ==================================================================
+        
+        // Firebase initialisieren
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // Global verfügbar machen
+        window.db = db;
+        window.firebaseDoc = doc;
+        window.firebaseSetDoc = setDoc;
+        window.firebaseOnSnapshot = onSnapshot;
+        window.firebaseCollection = collection;
+        window.firebaseGetDoc = getDoc;
+    </script>
+    
+    <style>
+        :root {
+            --primary-color: #ff9500;
+            --primary-hover: #ffb347;
+            --bg-dark: rgba(26, 26, 46, 0.95);
+            --bg-card: rgba(22, 33, 62, 0.9);
+            --text-primary: #eaeaea;
+            --text-secondary: #a0a0a0;
+            --border-color: rgba(255, 149, 0, 0.3);
+            --bg-overlay: rgba(20, 15, 10, 0.85);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            color: var(--text-primary);
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('assets/bg-blacksmith.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            z-index: -2;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-overlay);
+            z-index: -1;
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 2px solid var(--primary-color);
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(45deg, var(--primary-color), var(--primary-hover));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .subtitle { color: var(--text-secondary); font-size: 1.1rem; font-style: italic; }
+
+        .sync-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+        }
+
+        .sync-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #2ecc71;
+            animation: pulse 2s infinite;
+        }
+
+        .sync-indicator.offline { background: #e74c3c; animation: none; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        .stat-box {
+            background: var(--bg-card);
+            padding: 20px 30px;
+            border-radius: 12px;
+            border-left: 4px solid var(--primary-color);
+            text-align: center;
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .stat-value { font-size: 2rem; font-weight: bold; color: var(--primary-color); }
+        .stat-label { font-size: 0.9rem; color: var(--text-secondary); text-transform: uppercase; }
+
+        .controls {
+            background: var(--bg-card);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .control-group { display: flex; flex-direction: column; gap: 5px; }
+
+        label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .input-wrapper { position: relative; }
+
+        input, select {
+            width: 100%;
+            padding: 12px 35px 12px 15px;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        input:focus, select:focus { outline: none; border-color: var(--primary-color); }
+
+        .clear-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: none;
+        }
+
+        .clear-btn.visible { display: block; }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+            color: white;
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: var(--text-primary);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .btn-reset {
+            background: rgba(255,255,255,0.05);
+            color: var(--text-secondary);
+            border: 1px dashed rgba(255,255,255,0.2);
+        }
+
+        .table-wrapper {
+            background: var(--bg-card);
+            border-radius: 12px;
+            overflow: hidden;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        th {
+            background: rgba(0,0,0,0.4);
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            color: var(--primary-color);
+            cursor: pointer;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        th.sortable::after { content: ' ⇅'; opacity: 0.5; }
+        th.sorted-asc::after { content: ' ↑'; }
+        th.sorted-desc::after { content: ' ↓'; }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        tr:hover { background: rgba(255,255,255,0.03); }
+
+        .beruf-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .beruf-schmiede { background: rgba(156, 163, 175, 0.2); color: #9ca3af; }
+        .beruf-leder { background: rgba(217, 119, 6, 0.2); color: #d97706; }
+        .beruf-schneider { background: rgba(167, 139, 250, 0.2); color: #a78bfa; }
+        .beruf-ingenieur { background: rgba(234, 179, 8, 0.2); color: #eab308; }
+        .beruf-alchemie { background: rgba(248, 113, 113, 0.2); color: #f87171; }
+        .beruf-verzauberung { background: rgba(103, 232, 249, 0.2); color: #67e8f9; }
+        .beruf-juwelen { background: rgba(52, 211, 153, 0.2); color: #34d399; }
+        .beruf-inschriften { background: rgba(251, 146, 60, 0.2); color: #fb923c; }
+
+        .slot-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .notiz { font-size: 0.85rem; color: var(--text-secondary); }
+
+        .player-input {
+            width: 110px;
+            padding: 6px 10px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+
+        .rank-select {
+            width: 85px;
+            padding: 6px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.8rem;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 60px;
+            color: var(--text-secondary);
+            display: none;
+        }
+
+        .action-bar {
+            display: flex;
+            gap: 12px;
+            margin-top: 25px;
+            flex-wrap: wrap;
+        }
+
+        .save-indicator {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--primary-color);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .save-indicator.show { opacity: 1; transform: translateY(0); }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 1.5rem; }
+            .controls-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sync Status -->
+    <div class="sync-status" id="syncStatus">
+        <div class="sync-indicator" id="syncIndicator"></div>
+        <span id="syncText">Online</span>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>⚔️ Vox Draconis Crafting Manager</h1>
+            <p class="subtitle">World of Warcraft: Midnight - Berufsübersicht</p>
+        </header>
+
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-value" id="totalRecipes">0</div>
+                <div class="stat-label">Rezepte</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="totalCrafters">0</div>
+                <div class="stat-label">Crafter</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="onlineUsers">1</div>
+                <div class="stat-label">Online</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="controls-grid">
+                <div class="control-group">
+                    <label>🔍 Suche</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="searchInput" placeholder="Rezept, Item, Klasse...">
+                        <button class="clear-btn" id="clearSearch">×</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Beruf</label>
+                    <select id="berufFilter"><option value="">Alle Berufe</option></select>
+                </div>
+                <div class="control-group">
+                    <label>Kategorie</label>
+                    <select id="kategorieFilter"><option value="">Alle Kategorien</option></select>
+                </div>
+                <div class="control-group">
+                    <label>Slot/Type</label>
+                    <select id="slotFilter"><option value="">Alle Slots</option></select>
+                </div>
+            </div>
+            <button class="btn btn-reset" onclick="resetFilters()">🔄 Alle Filter zurücksetzen</button>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="sortable" data-column="beruf">Beruf</th>
+                        <th class="sortable" data-column="kategorie">Kategorie</th>
+                        <th class="sortable" data-column="rezept">Rezept</th>
+                        <th class="sortable" data-column="slot">Slot</th>
+                        <th>Crafter</th>
+                        <th>Notiz</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+            <div id="noResults" class="no-results">
+                <div style="font-size: 3rem; margin-bottom: 10px;">🔍</div>
+                <div>Keine Rezepte gefunden</div>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <button class="btn btn-secondary" onclick="exportData()">💾 Backup Export</button>
+            <button class="btn btn-secondary" onclick="importData()">📁 Backup Import</button>
+            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="handleImport(event)">
+        </div>
+    </div>
+
+    <div class="save-indicator" id="saveIndicator">💾 Gespeichert!</div>
+
+    <script type="module">
+        // ==================================================================
+        // DATEN
+        // ==================================================================
+        const CRAFTING_DATA = [
+            { beruf: "Schmiedekunst", kategorie: "Waffen", rezept: "Verdorbener Ehrgeiz", slot: "Einhandwaffe", notiz: "Epic - Waffenschmied Spezialisierung" },
+            { beruf: "Schmiedekunst", kategorie: "Waffen", rezept: "Blutritter-Kriegsklinge", slot: "Zweihandschwert", notiz: "Epic - Ruf: Silbermond erforderlich" },
+            { beruf: "Schmiedekunst", kategorie: "Waffen", rezept: "Blutritters Gnade", slot: "Dolch", notiz: "Epic - Ruf: Silbermond erforderlich" },
+            { beruf: "Schmiedekunst", kategorie: "Waffen", rezept: "Magister-Spalter", slot: "Axt", notiz: "Epic - Ruf: Silbermond erforderlich" },
+            { beruf: "Schmiedekunst", kategorie: "Waffen", rezept: "Magister-Manaklinge", slot: "Einhandschwert", notiz: "Epic - Ruf: Silbermond erforderlich" },
+            { beruf: "Schmiedekunst", kategorie: "Waffen", rezept: "Magister-Ritualmesser", slot: "Dolch", notiz: "Epic - Ruf: Silbermond erforderlich" },
+            { beruf: "Schmiedekunst", kategorie: "Waffen", rezept: "Faustwaffe der Sonnenzuflucht", slot: "Faustwaffe", notiz: "Epic - Sonnenzuflucht Waffe" },
+            { beruf: "Schmiedekunst", kategorie: "Waffen", rezept: "Kriegsgleve der Sonnenzuflucht", slot: "Kriegsgleve", notiz: "Epic - Sonnenzuflucht Waffe" },
+            { beruf: "Schmiedekunst", kategorie: "Waffen", rezept: "Streitkolben der Sonnenzuflucht", slot: "Streitkolben", notiz: "Epic - Sonnenzuflucht Waffe" },
+            { beruf: "Schmiedekunst", kategorie: "Waffen", rezept: "Speer der Sonnenzuflucht", slot: "Stangenwaffe", notiz: "Epic - Sonnenzuflucht Waffe" },
+            { beruf: "Schmiedekunst", kategorie: "Plattenrüstung", rezept: "Leerenschlundhelm", slot: "Kopf", notiz: "Epic - Plattenhelm" },
+            { beruf: "Schmiedekunst", kategorie: "Plattenrüstung", rezept: "Leerenschlundschultern", slot: "Schultern", notiz: "Epic - Platten-Schultern" },
+            { beruf: "Schmiedekunst", kategorie: "Plattenrüstung", rezept: "Leerenschlundbrustharnisch", slot: "Brust", notiz: "Epic - Platten-Brust" },
+            { beruf: "Schmiedekunst", kategorie: "Plattenrüstung", rezept: "Leerenschlundarmschienen", slot: "Handgelenke", notiz: "Epic - Platten-Armbänder" },
+            { beruf: "Schmiedekunst", kategorie: "Plattenrüstung", rezept: "Leerenschlundstulpen", slot: "Hände", notiz: "Epic - Platten-Stulpen" },
+            { beruf: "Schmiedekunst", kategorie: "Plattenrüstung", rezept: "Leerenschlundgürtel", slot: "Taille", notiz: "Epic - Platten-Gürtel" },
+            { beruf: "Schmiedekunst", kategorie: "Plattenrüstung", rezept: "Leerenschlundbeinschützer", slot: "Beine", notiz: "Epic - Platten-Beine" },
+            { beruf: "Schmiedekunst", kategorie: "Plattenrüstung", rezept: "Leerenschlundstiefel", slot: "Füße", notiz: "Epic - Platten-Stiefel" },
+            { beruf: "Schmiedekunst", kategorie: "Waffenverzauberung", rezept: "Magisterschleifstein", slot: "Waffen-Item", notiz: "+Schaden Waffenverzauberung" },
+            { beruf: "Schmiedekunst", kategorie: "Waffenverzauberung", rezept: "Blutritterschleifstein", slot: "Waffen-Item", notiz: "+Krit Waffenverzauberung" },
+            
+            { beruf: "Lederverarbeitung", kategorie: "Leder-Rüstung", rezept: "Leerenschlinger-Maske", slot: "Kopf", notiz: "Epic - Lederhelm" },
+            { beruf: "Lederverarbeitung", kategorie: "Leder-Rüstung", rezept: "Leerenschlinger-Schiftung", slot: "Schultern", notiz: "Epic - Leder-Schultern" },
+            { beruf: "Lederverarbeitung", kategorie: "Leder-Rüstung", rezept: "Leerenschlinger-Weste", slot: "Brust", notiz: "Epic - Leder-Brust" },
+            { beruf: "Lederverarbeitung", kategorie: "Leder-Rüstung", rezept: "Leerenschlinger-Armbänder", slot: "Handgelenke", notiz: "Epic - Leder-Armbänder" },
+            { beruf: "Lederverarbeitung", kategorie: "Leder-Rüstung", rezept: "Leerenschlinger-Handschuhe", slot: "Hände", notiz: "Epic - Leder-Handschuhe" },
+            { beruf: "Lederverarbeitung", kategorie: "Leder-Rüstung", rezept: "Leerenschlinger-Gürtel", slot: "Taille", notiz: "Epic - Leder-Gürtel" },
+            { beruf: "Lederverarbeitung", kategorie: "Leder-Rüstung", rezept: "Leerenschlinger-Hose", slot: "Beine", notiz: "Epic - Leder-Hose" },
+            { beruf: "Lederverarbeitung", kategorie: "Leder-Rüstung", rezept: "Leerenschlinger-Stiefel", slot: "Füße", notiz: "Epic - Leder-Stiefel" },
+            { beruf: "Lederverarbeitung", kategorie: "Ketten-Rüstung", rezept: "Zerschlagene-Ketten-Kopfbedeckung", slot: "Kopf", notiz: "Epic - Ketten-Helm" },
+            { beruf: "Lederverarbeitung", kategorie: "Ketten-Rüstung", rezept: "Zerschlagene-Ketten-Schiftung", slot: "Schultern", notiz: "Epic - Ketten-Schultern" },
+            { beruf: "Lederverarbeitung", kategorie: "Ketten-Rüstung", rezept: "Zerschlagene-Ketten-Brustharnisch", slot: "Brust", notiz: "Epic - Ketten-Brust" },
+            { beruf: "Lederverarbeitung", kategorie: "Ketten-Rüstung", rezept: "Zerschlagene-Ketten-Armschienen", slot: "Handgelenke", notiz: "Epic - Ketten-Armbänder" },
+            { beruf: "Lederverarbeitung", kategorie: "Ketten-Rüstung", rezept: "Zerschlagene-Ketten-Stulpen", slot: "Hände", notiz: "Epic - Ketten-Stulpen" },
+            { beruf: "Lederverarbeitung", kategorie: "Ketten-Rüstung", rezept: "Zerschlagene-Ketten-Gurt", slot: "Taille", notiz: "Epic - Ketten-Gurt" },
+            { beruf: "Lederverarbeitung", kategorie: "Ketten-Rüstung", rezept: "Zerschlagene-Ketten-Beinschützer", slot: "Beine", notiz: "Epic - Ketten-Beine" },
+            { beruf: "Lederverarbeitung", kategorie: "Ketten-Rüstung", rezept: "Zerschlagene-Ketten-Stiefel", slot: "Füße", notiz: "Epic - Ketten-Stiefel" },
+            { beruf: "Lederverarbeitung", kategorie: "Rüstungssets", rezept: "Verstärktes Lederset", slot: "Komplettset", notiz: "Komplettes 8-Teil Leder-Set" },
+            { beruf: "Lederverarbeitung", kategorie: "Rüstungssets", rezept: "Verstärktes Kettenset", slot: "Komplettset", notiz: "Komplettes 8-Teil Ketten-Set" },
+            
+            { beruf: "Schneiderei", kategorie: "Stoff-Rüstung", rezept: "Schleier der Erwachenden Sonne", slot: "Kopf", notiz: "Epic - Stoffhelm" },
+            { beruf: "Schneiderei", kategorie: "Stoff-Rüstung", rezept: "Mantelung der Erwachenden Sonne", slot: "Schultern", notiz: "Epic - Stoff-Schultern" },
+            { beruf: "Schneiderei", kategorie: "Stoff-Rüstung", rezept: "Roben der Erwachenden Sonne", slot: "Brust", notiz: "Epic - Stoff-Brust" },
+            { beruf: "Schneiderei", kategorie: "Stoff-Rüstung", rezept: "Bindungen der Erwachenden Sonne", slot: "Handgelenke", notiz: "Epic - Stoff-Armbänder" },
+            { beruf: "Schneiderei", kategorie: "Stoff-Rüstung", rezept: "Handschützer der Erwachenden Sonne", slot: "Hände", notiz: "Epic - Stoff-Handschützer" },
+            { beruf: "Schneiderei", kategorie: "Stoff-Rüstung", rezept: "Kordel der Erwachenden Sonne", slot: "Taille", notiz: "Epic - Stoff-Gürtel" },
+            { beruf: "Schneiderei", kategorie: "Stoff-Rüstung", rezept: "Beinkleider der Erwachenden Sonne", slot: "Beine", notiz: "Epic - Stoff-Beinkleider" },
+            { beruf: "Schneiderei", kategorie: "Stoff-Rüstung", rezept: "Schuhe der Erwachenden Sonne", slot: "Füße", notiz: "Epic - Stoff-Schuhe" },
+            { beruf: "Schneiderei", kategorie: "Stoff-Rüstung", rezept: "Sonnenzorntuch", slot: "Umhang", notiz: "Epic - Umhang" },
+            { beruf: "Schneiderei", kategorie: "Taschen", rezept: "Tuch des Thalassischen Archivars", slot: "Tasche", notiz: "36 Slot Allzweck-Tasche" },
+            { beruf: "Schneiderei", kategorie: "Taschen", rezept: "Tuch des Sonnenzorntaschendiebs", slot: "Tasche", notiz: "36 Slot Kräutertasche" },
+            { beruf: "Schneiderei", kategorie: "Taschen", rezept: "Tuch des Am'mental Schatzsuchers", slot: "Tasche", notiz: "36 Slot Bergbautasche" },
+            { beruf: "Schneiderei", kategorie: "Taschen", rezept: "Tuch des Haranir Lederers", slot: "Tasche", notiz: "36 Slot Lederertasche" },
+            { beruf: "Schneiderei", kategorie: "Fäden", rezept: "Leuchtender Faden", slot: "Material", notiz: "Optional Reagent für Gear-Crafting" },
+            { beruf: "Schneiderei", kategorie: "Fäden", rezept: "Verstärkter Leuchtender Faden", slot: "Material", notiz: "Epic Qualität Thread" },
+            
+            { beruf: "Ingenieurskunst", kategorie: "Brillen", rezept: "AZ3-R1-T Brille (Stoff)", slot: "Kopf", notiz: "Epic Ingenieursbrille für Stoffträger" },
+            { beruf: "Ingenieurskunst", kategorie: "Brillen", rezept: "AZ3-R1-T Brille (Leder)", slot: "Kopf", notiz: "Epic Ingenieursbrille für Ledertäger" },
+            { beruf: "Ingenieurskunst", kategorie: "Brillen", rezept: "AZ3-R1-T Brille (Kette)", slot: "Kopf", notiz: "Epic Ingenieursbrille für Kettenjäger" },
+            { beruf: "Ingenieurskunst", kategorie: "Brillen", rezept: "AZ3-R1-T Brille (Platte)", slot: "Kopf", notiz: "Epic Ingenieursbrille für Plattenträger" },
+            { beruf: "Ingenieurskunst", kategorie: "Gadget", rezept: "Leerenlicht-Transporter", slot: "Gadget", notiz: "Teleport-Gadget" },
+            { beruf: "Ingenieurskunst", kategorie: "Gadget", rezept: "Goblin-Glider", slot: "Gadget", notiz: "Fallschirm" },
+            { beruf: "Ingenieurskunst", kategorie: "Gadget", rezept: "Lebensfinder-MKII", slot: "Gadget", notiz: "Scannt Lebens- und Mana-Einheiten" },
+            { beruf: "Ingenieurskunst", kategorie: "Gadget", rezept: "Thorium-Flieger", slot: "Reittier", notiz: "Ingenieurs-Reittier" },
+            { beruf: "Ingenieurskunst", kategorie: "Munition", rezept: "Gnomische Schallgranate", slot: "Munition", notiz: "AoE Schadensgranate" },
+            { beruf: "Ingenieurskunst", kategorie: "Munition", rezept: "Goblin-Raketenwerfer", slot: "Munition", notiz: "Single-Target Raketenwerfer" },
+            { beruf: "Ingenieurskunst", kategorie: "Munition", rezept: "Leerenlicht-Munition", slot: "Munition", notiz: "Spezialmunition für Schusswaffen" },
+            { beruf: "Ingenieurskunst", kategorie: "Spielzeug", rezept: "persönliches Weltenschreiner", slot: "Spielzeug", notiz: "Mobile Bank" },
+            { beruf: "Ingenieurskunst", kategorie: "Spielzeug", rezept: "tragbarer Leerenlichtfokus", slot: "Spielzeug", notiz: "Lichteffekt-Spielzeug" },
+            { beruf: "Ingenieurskunst", kategorie: "Spielzeug", rezept: "tragbarer Leerenschattenfokus", slot: "Spielzeug", notiz: "Schatteneffekt-Spielzeug" },
+            
+            { beruf: "Alchemie", kategorie: "Fläschchen", rezept: "Fläschchen des Lichts", slot: "Fläschchen", notiz: "+Primärstat Stärke" },
+            { beruf: "Alchemie", kategorie: "Fläschchen", rezept: "Fläschchen der Leere", slot: "Fläschchen", notiz: "+Primärstat Agilität" },
+            { beruf: "Alchemie", kategorie: "Fläschchen", rezept: "Fläschchen der Sonne", slot: "Fläschchen", notiz: "+Primärstat Intelligenz" },
+            { beruf: "Alchemie", kategorie: "Fläschchen", rezept: "Fläschchen des Kampfes", slot: "Fläschchen", notiz: "PvP Fläschchen" },
+            { beruf: "Alchemie", kategorie: "Fläschchen", rezept: "Großer Kessel des Lichts", slot: "Kessel", notiz: "Raid-Kessel für Stärke" },
+            { beruf: "Alchemie", kategorie: "Fläschchen", rezept: "Großer Kessel der Leere", slot: "Kessel", notiz: "Raid-Kessel für Agilität" },
+            { beruf: "Alchemie", kategorie: "Tränke", rezept: "Trank des lebhaften Lichts", slot: "Heiltrank", notiz: "Kampf-Heiltrank" },
+            { beruf: "Alchemie", kategorie: "Tränke", rezept: "Trank der flüchtigen Leere", slot: "Manatrank", notiz: "Kampf-Manatrank" },
+            { beruf: "Alchemie", kategorie: "Tränke", rezept: "Trank der wütenden Sonne", slot: "DPS-Trank", notiz: "DPS-Kampftrank" },
+            { beruf: "Alchemie", kategorie: "Tränke", rezept: "Trank des Schattenschritts", slot: "Utility-Trank", notiz: "Unsichtbarkeitstrank" },
+            { beruf: "Alchemie", kategorie: "Tränke", rezept: "Trank der zeitlosen Leere", slot: "Utility-Trank", notiz: "Cooldown-Reset" },
+            { beruf: "Alchemie", kategorie: "Phiolen", rezept: "Phiole der Haranir-Schöpfer", slot: "Berufs-Phiole", notiz: "+Berufsfertigkeit" },
+            { beruf: "Alchemie", kategorie: "Phiolen", rezept: "Phiole des Meisters", slot: "Berufs-Phiole", notiz: "+Inspiration" },
+            { beruf: "Alchemie", kategorie: "Phiolen", rezept: "Phiole der Fülle", slot: "Berufs-Phiole", notiz: "+Multicraft" },
+            { beruf: "Alchemie", kategorie: "Alchemistenstein", rezept: "Alchemistenstein der Sonnenzuflucht", slot: "Trinket", notiz: "Epic Alchemistenstein" },
+            { beruf: "Alchemie", kategorie: "Alchemistenstein", rezept: "Magister-Alchemistenstein", slot: "Trinket", notiz: "Epic Trinket + Potion Boost" },
+            { beruf: "Alchemie", kategorie: "Transmutation", rezept: "Wunderbarer Synergist", slot: "Transmute", notiz: "Tägliche Transmutation" },
+            { beruf: "Alchemie", kategorie: "Transmutation", rezept: "Leerenlicht-Motentransmutation", slot: "Transmute", notiz: "Konvertiert Moten" },
+            
+            { beruf: "Verzauberkunst", kategorie: "Waffen-VZ", rezept: "Verzauberung: Waffe - Sonnenglanz", slot: "Waffenverzauberung", notiz: "+Schaden (Feuer)" },
+            { beruf: "Verzauberkunst", kategorie: "Waffen-VZ", rezept: "Verzauberung: Waffe - Leerenhauch", slot: "Waffenverzauberung", notiz: "+Schaden (Schatten)" },
+            { beruf: "Verzauberkunst", kategorie: "Waffen-VZ", rezept: "Verzauberung: Waffe - Thalassische Präzision", slot: "Waffenverzauberung", notiz: "+Trefferwertung" },
+            { beruf: "Verzauberkunst", kategorie: "Waffen-VZ", rezept: "Verzauberung: Waffe - Blutritter-Macht", slot: "Waffenverzauberung", notiz: "+Angriffskraft" },
+            { beruf: "Verzauberkunst", kategorie: "Waffen-VZ", rezept: "Verzauberung: Waffe - Magister-Intellekt", slot: "Waffenverzauberung", notiz: "+Zaubermacht" },
+            { beruf: "Verzauberkunst", kategorie: "Rüstungs-VZ", rezept: "Verzauberung: Brust - Glühende Widerstandskraft", slot: "Rüstungsverzauberung", notiz: "+Gesundheit" },
+            { beruf: "Verzauberkunst", kategorie: "Rüstungs-VZ", rezept: "Verzauberung: Brust - Leerenlicht-Schutz", slot: "Rüstungsverzauberung", notiz: "+Rüstung" },
+            { beruf: "Verzauberkunst", kategorie: "Rüstungs-VZ", rezept: "Verzauberung: Umhang - Sonnengleiten", slot: "Rüstungsverzauberung", notiz: "Fallschirm" },
+            { beruf: "Verzauberkunst", kategorie: "Rüstungs-VZ", rezept: "Verzauberung: Umhang - Schattenhafter Schritt", slot: "Rüstungsverzauberung", notiz: "+Tempo" },
+            { beruf: "Verzauberkunst", kategorie: "Rüstungs-VZ", rezept: "Verzauberung: Stiefel - Hufe des Lichts", slot: "Rüstungsverzauberung", notiz: "+Tempo" },
+            { beruf: "Verzauberkunst", kategorie: "Rüstungs-VZ", rezept: "Verzauberung: Arme - Leerenlicht-Weber", slot: "Rüstungsverzauberung", notiz: "+Meisterschaft" },
+            { beruf: "Verzauberkunst", kategorie: "Rüstungs-VZ", rezept: "Verzauberung: Beine - Sonnengewebter Faden", slot: "Rüstungsverzauberung", notiz: "+Int/Str/Agi" },
+            { beruf: "Verzauberkunst", kategorie: "Ring-VZ", rezept: "Verzauberung: Ring - Leuchtender Granat", slot: "Ringverzauberung", notiz: "+Krit" },
+            { beruf: "Verzauberkunst", kategorie: "Ring-VZ", rezept: "Verzauberung: Ring - Tiefenamethyst", slot: "Ringverzauberung", notiz: "+Meisterschaft" },
+            { beruf: "Verzauberkunst", kategorie: "Ring-VZ", rezept: "Verzauberung: Ring - Azurlapis", slot: "Ringverzauberung", notiz: "+Vielseitigkeit" },
+            { beruf: "Verzauberkunst", kategorie: "Ring-VZ", rezept: "Verzauberung: Ring - Haranir-Peridot", slot: "Ringverzauberung", notiz: "+Tempo" },
+            { beruf: "Verzauberkunst", kategorie: "Wappen", rezept: "Wappen des Blutritters", slot: "Werkzeug", notiz: "Profession-Accessory" },
+            { beruf: "Verzauberkunst", kategorie: "Wappen", rezept: "Wappen der Sonnenzuflucht", slot: "Werkzeug", notiz: "Profession-Accessory" },
+            { beruf: "Verzauberkunst", kategorie: "Wappen", rezept: "Wappen der Haranir", slot: "Werkzeug", notiz: "Profession-Accessory" },
+            
+            { beruf: "Juwelierskunst", kategorie: "Edelsteine", rezept: "Tödlicher Sanguin-Granat", slot: "Edelstein", notiz: "+Krit (Rot)" },
+            { beruf: "Juwelierskunst", kategorie: "Edelsteine", rezept: "Meisterhafter Sanguin-Granat", slot: "Edelstein", notiz: "+Meisterschaft (Rot)" },
+            { beruf: "Juwelierskunst", kategorie: "Edelsteine", rezept: "Vielseitiger Sanguin-Granat", slot: "Edelstein", notiz: "+Vielseitigkeit (Rot)" },
+            { beruf: "Juwelierskunst", kategorie: "Edelsteine", rezept: "Schneller Sanguin-Granat", slot: "Edelstein", notiz: "+Tempo (Rot)" },
+            { beruf: "Juwelierskunst", kategorie: "Edelsteine", rezept: "Tödlicher Tenebroser Amethyst", slot: "Edelstein", notiz: "+Krit (Lila)" },
+            { beruf: "Juwelierskunst", kategorie: "Edelsteine", rezept: "Meisterhafter Tenebroser Amethyst", slot: "Edelstein", notiz: "+Meisterschaft (Lila)" },
+            { beruf: "Juwelierskunst", kategorie: "Edelsteine", rezept: "Tödlicher Amani-Lapis", slot: "Edelstein", notiz: "+Krit (Blau)" },
+            { beruf: "Juwelierskunst", kategorie: "Edelsteine", rezept: "Meisterhafter Amani-Lapis", slot: "Edelstein", notiz: "+Meisterschaft (Blau)" },
+            { beruf: "Juwelierskunst", kategorie: "Edelsteine", rezept: "Tödlicher Haranir-Peridot", slot: "Edelstein", notiz: "+Krit (Grün)" },
+            { beruf: "Juwelierskunst", kategorie: "Edelsteine", rezept: "Meisterhafter Haranir-Peridot", slot: "Edelstein", notiz: "+Meisterschaft (Grün)" },
+            { beruf: "Juwelierskunst", kategorie: "Edelsteine", rezept: "Makelloser Eversong-Diamant", slot: "Meta-Gem", notiz: "Meta-Gem +Primärstat" },
+            { beruf: "Juwelierskunst", kategorie: "Ringe", rezept: "Sin'dorei-Band (Rare)", slot: "Ring", notiz: "Rare Ring" },
+            { beruf: "Juwelierskunst", kategorie: "Ringe", rezept: "Sin'dorei-Siegel (Epic)", slot: "Ring", notiz: "Epic Ring" },
+            { beruf: "Juwelierskunst", kategorie: "Ringe", rezept: "Meisterwerk Sin'dorei-Band", slot: "Ring", notiz: "Epic Ring (Max)" },
+            { beruf: "Juwelierskunst", kategorie: "Ringe", rezept: "Magister-Siegel der Macht", slot: "Ring", notiz: "Epic Ring" },
+            { beruf: "Juwelierskunst", kategorie: "Halsketten", rezept: "Sin'dorei-Amulett (Rare)", slot: "Halskette", notiz: "Rare Halskette" },
+            { beruf: "Juwelierskunst", kategorie: "Halsketten", rezept: "Sin'dorei-Medaillon (Epic)", slot: "Halskette", notiz: "Epic Halskette" },
+            { beruf: "Juwelierskunst", kategorie: "Halsketten", rezept: "Meisterwerk Sin'dorei-Amulett", slot: "Halskette", notiz: "Epic Halskette (Max)" },
+            { beruf: "Juwelierskunst", kategorie: "Halsketten", rezept: "Kette der Sonnenzuflucht", slot: "Halskette", notiz: "Epic Halskette" },
+            { beruf: "Juwelierskunst", kategorie: "Statuen", rezept: "Statue des Lichtwächters", slot: "Housing", notiz: "Housing-Deko" },
+            { beruf: "Juwelierskunst", kategorie: "Statuen", rezept: "Statue der Leerenleere", slot: "Housing", notiz: "Housing-Deko" },
+            
+            { beruf: "Inschriftenkunde", kategorie: "Verträge", rezept: "Vertrag: Sonnenzuflucht", slot: "Vertrag", notiz: "+Ruf" },
+            { beruf: "Inschriftenkunde", kategorie: "Verträge", rezept: "Vertrag: Haranir", slot: "Vertrag", notiz: "+Ruf" },
+            { beruf: "Inschriftenkunde", kategorie: "Verträge", rezept: "Vertrag: Amani", slot: "Vertrag", notiz: "+Ruf" },
+            { beruf: "Inschriftenkunde", kategorie: "Verträge", rezept: "Vertrag: Sturmgipfel", slot: "Vertrag", notiz: "+Ruf" },
+            { beruf: "Inschriftenkunde", kategorie: "Runen", rezept: "Runenschrift: Versatz", slot: "Runen", notiz: "+Krit" },
+            { beruf: "Inschriftenkunde", kategorie: "Runen", rezept: "Runenschrift: Meisterschaft", slot: "Runen", notiz: "+Meisterschaft" },
+            { beruf: "Inschriftenkunde", kategorie: "Runen", rezept: "Runenschrift: Vielseitigkeit", slot: "Runen", notiz: "+Vielseitigkeit" },
+            { beruf: "Inschriftenkunde", kategorie: "Runen", rezept: "Runenschrift: Tempo", slot: "Runen", notiz: "+Tempo" },
+            { beruf: "Inschriftenkunde", kategorie: "Stäbe", rezept: "Stab der Sonnenzuflucht", slot: "Stab", notiz: "Epic Stab" },
+            { beruf: "Inschriftenkunde", kategorie: "Stäbe", rezept: "Stab der Erwachenden Sonne", slot: "Stab", notiz: "Epic Stab" },
+            { beruf: "Inschriftenkunde", kategorie: "Stäbe", rezept: "Magister-Stab des Wissens", slot: "Stab", notiz: "Epic Stab" },
+            { beruf: "Inschriftenkunde", kategorie: "Stäbe", rezept: "Runenverzierter Thalassischer Stab", slot: "Stab", notiz: "Epic Stab" },
+            { beruf: "Inschriftenkunde", kategorie: "Karten", rezept: "Dunkelmond-Karte: Blut", slot: "Kartenkarte", notiz: "Trinket-Karte" },
+            { beruf: "Inschriftenkunde", kategorie: "Karten", rezept: "Dunkelmond-Karte: Jagd", slot: "Kartenkarte", notiz: "Trinket-Karte" },
+            { beruf: "Inschriftenkunde", kategorie: "Karten", rezept: "Dunkelmond-Karte: Fäulnis", slot: "Kartenkarte", notiz: "Trinket-Karte" },
+            { beruf: "Inschriftenkunde", kategorie: "Karten", rezept: "Dunkelmond-Karte: Leere", slot: "Kartenkarte", notiz: "Trinket-Karte" },
+            { beruf: "Inschriftenkunde", kategorie: "Karten", rezept: "Dunkelmond-Herrschaft: Blut", slot: "Trinket", notiz: "Epic Trinket" },
+            { beruf: "Inschriftenkunde", kategorie: "Karten", rezept: "Dunkelmond-Herrschaft: Jagd", slot: "Trinket", notiz: "Epic Trinket" },
+            { beruf: "Inschriftenkunde", kategorie: "Karten", rezept: "Dunkelmond-Herrschaft: Fäulnis", slot: "Trinket", notiz: "Epic Trinket" },
+            { beruf: "Inschriftenkunde", kategorie: "Karten", rezept: "Dunkelmond-Herrschaft: Leere", slot: "Trinket", notiz: "Epic Trinket" }
+        ];
+
+        // ==================================================================
+        // FIREBASE INITIALISIERUNG
+        // ==================================================================
+        let db, playerData = {}, currentData = [...CRAFTING_DATA], currentSort = { column: null, direction: 'asc' };
+        let isOnline = true;
+
+        async function initFirebase() {
+            try {
+                // Warte bis Firebase geladen ist
+                while (!window.db) {
+                    await new Promise(r => setTimeout(r, 100));
+                }
+                
+                db = window.db;
+                
+                // Echtzeit-Listener für Datenänderungen
+                const craftersRef = window.firebaseDoc(db, 'crafting', 'crafters');
+                
+                window.firebaseOnSnapshot(craftersRef, (doc) => {
+                    if (doc.exists()) {
+                        playerData = doc.data().data || {};
+                        isOnline = true;
+                        updateSyncStatus(true);
+                        renderTable();
+                        updateStats();
+                    }
+                }, (error) => {
+                    console.error('Firebase Error:', error);
+                    isOnline = false;
+                    updateSyncStatus(false);
+                    // Fallback zu localStorage
+                    const local = localStorage.getItem('voxDraconisCrafters');
+                    if (local) {
+                        playerData = JSON.parse(local);
+                        renderTable();
+                        updateStats();
+                    }
+                });
+
+                // Initial laden
+                const docSnap = await window.firebaseGetDoc(craftersRef);
+                if (!docSnap.exists()) {
+                    // Erstelle leeres Dokument
+                    await window.firebaseSetDoc(craftersRef, { data: {}, updated: new Date().toISOString() });
+                }
+
+            } catch (error) {
+                console.error('Init Error:', error);
+                // Fallback zu localStorage
+                const local = localStorage.getItem('voxDraconisCrafters');
+                if (local) playerData = JSON.parse(local);
+                isOnline = false;
+                updateSyncStatus(false);
+                renderTable();
+                updateStats();
+            }
+        }
+
+        function updateSyncStatus(online) {
+            const indicator = document.getElementById('syncIndicator');
+            const text = document.getElementById('syncText');
+            if (online) {
+                indicator.classList.remove('offline');
+                text.textContent = 'Online';
+            } else {
+                indicator.classList.add('offline');
+                text.textContent = 'Offline (lokal)';
+            }
+        }
+
+        // ==================================================================
+        // FUNKTIONEN
+        // ==================================================================
+        function init() {
+            populateFilters();
+            applyFilters(); // Initial filtern und anzeigen
+            initFirebase();
+            setupEvents();
+        }
+
+        function populateFilters() {
+            const berufe = ["Schmiedekunst", "Lederverarbeitung", "Schneiderei", "Ingenieurskunst", "Alchemie", "Verzauberkunst", "Juwelierskunst", "Inschriftenkunde"];
+            const kategorien = [...new Set(CRAFTING_DATA.map(d => d.kategorie))].sort();
+            const slots = [...new Set(CRAFTING_DATA.map(d => d.slot))].sort();
+
+            berufe.forEach(b => document.getElementById('berufFilter').innerHTML += `<option value="${b}">${b}</option>`);
+            kategorien.forEach(k => document.getElementById('kategorieFilter').innerHTML += `<option value="${k}">${k}</option>`);
+            slots.forEach(s => document.getElementById('slotFilter').innerHTML += `<option value="${s}">${s}</option>`);
+        }
+
+        function getBerufClass(beruf) {
+            const map = { 'Schmiedekunst': 'schmiede', 'Lederverarbeitung': 'leder', 'Schneiderei': 'schneider', 'Ingenieurskunst': 'ingenieur', 'Alchemie': 'alchemie', 'Verzauberkunst': 'verzauberung', 'Juwelierskunst': 'juwelen', 'Inschriftenkunde': 'inschriften' };
+            return map[beruf] || '';
+        }
+
+        function generateId(item) {
+            return `${item.beruf}_${item.kategorie}_${item.rezept}`.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            const noResults = document.getElementById('noResults');
+            
+            if (!tbody) return; // Sicherheitscheck
+            
+            document.getElementById('filteredCount').textContent = currentData.length;
+
+            if (currentData.length === 0) {
+                tbody.innerHTML = '';
+                noResults.style.display = 'block';
+                return;
+            }
+
+            noResults.style.display = 'none';
+            
+            tbody.innerHTML = currentData.map(item => {
+                const id = generateId(item);
+                const saved = playerData[id] || { s1: '', r1: '', s2: '', r2: '', s3: '', r3: '' };
+                return `
+                    <tr>
+                        <td><span class="beruf-badge beruf-${getBerufClass(item.beruf)}">${item.beruf}</span></td>
+                        <td>${item.kategorie}</td>
+                        <td><strong>${item.rezept}</strong></td>
+                        <td><span class="slot-badge">${item.slot}</span></td>
+                        <td>
+                            <input type="text" class="player-input" placeholder="Name" value="${saved.s1}" onchange="updatePlayer('${id}', 's1', this.value)">
+                            <select class="rank-select" onchange="updatePlayer('${id}', 'r1', this.value)">
+                                <option value="">-</option>
+                                <option value="Max" ${saved.r1 === 'Max' ? 'selected' : ''}>Max</option>
+                                <option value="Hoch" ${saved.r1 === 'Hoch' ? 'selected' : ''}>Hoch</option>
+                                <option value="Mittel" ${saved.r1 === 'Mittel' ? 'selected' : ''}>Mittel</option>
+                                <option value="Anfänger" ${saved.r1 === 'Anfänger' ? 'selected' : ''}>Anf.</option>
+                            </select>
+                            <br>
+                            <input type="text" class="player-input" placeholder="Name" value="${saved.s2}" onchange="updatePlayer('${id}', 's2', this.value)">
+                            <select class="rank-select" onchange="updatePlayer('${id}', 'r2', this.value)">
+                                <option value="">-</option>
+                                <option value="Max" ${saved.r2 === 'Max' ? 'selected' : ''}>Max</option>
+                                <option value="Hoch" ${saved.r2 === 'Hoch' ? 'selected' : ''}>Hoch</option>
+                                <option value="Mittel" ${saved.r2 === 'Mittel' ? 'selected' : ''}>Mittel</option>
+                                <option value="Anfänger" ${saved.r2 === 'Anfänger' ? 'selected' : ''}>Anf.</option>
+                            </select>
+                            <br>
+                            <input type="text" class="player-input" placeholder="Name" value="${saved.s3}" onchange="updatePlayer('${id}', 's3', this.value)">
+                            <select class="rank-select" onchange="updatePlayer('${id}', 'r3', this.value)">
+                                <option value="">-</option>
+                                <option value="Max" ${saved.r3 === 'Max' ? 'selected' : ''}>Max</option>
+                                <option value="Hoch" ${saved.r3 === 'Hoch' ? 'selected' : ''}>Hoch</option>
+                                <option value="Mittel" ${saved.r3 === 'Mittel' ? 'selected' : ''}>Mittel</option>
+                                <option value="Anfänger" ${saved.r3 === 'Anfänger' ? 'selected' : ''}>Anf.</option>
+                            </select>
+                        </td>
+                        <td class="notiz">${item.notiz}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function updatePlayer(id, field, value) {
+            if (!playerData[id]) playerData[id] = { s1: '', r1: '', s2: '', r2: '', s3: '', r3: '' };
+            playerData[id][field] = value;
+            
+            // Lokale Speicherung als Backup
+            localStorage.setItem('voxDraconisCrafters', JSON.stringify(playerData));
+            
+            // Firebase Update
+            if (db && isOnline) {
+                try {
+                    const craftersRef = window.firebaseDoc(db, 'crafting', 'crafters');
+                    await window.firebaseSetDoc(craftersRef, { 
+                        data: playerData, 
+                        updated: new Date().toISOString() 
+                    });
+                    showSaveIndicator();
+                } catch (error) {
+                    console.error('Save Error:', error);
+                }
+            }
+            
+            updateStats();
+        }
+
+        function showSaveIndicator() {
+            const indicator = document.getElementById('saveIndicator');
+            indicator.classList.add('show');
+            setTimeout(() => indicator.classList.remove('show'), 2000);
+        }
+
+        function updateStats() {
+            document.getElementById('totalRecipes').textContent = CRAFTING_DATA.length;
+            let count = 0;
+            Object.values(playerData).forEach(d => { if (d.s1) count++; if (d.s2) count++; if (d.s3) count++; });
+            document.getElementById('totalCrafters').textContent = count;
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const beruf = document.getElementById('berufFilter').value;
+            const kat = document.getElementById('kategorieFilter').value;
+            const slot = document.getElementById('slotFilter').value;
+
+            currentData = CRAFTING_DATA.filter(item => {
+                return (!search || item.rezept.toLowerCase().includes(search) || item.notiz.toLowerCase().includes(search)) &&
+                       (!beruf || item.beruf === beruf) &&
+                       (!kat || item.kategorie === kat) &&
+                       (!slot || item.slot === slot);
+            });
+
+            if (currentSort.column) {
+                currentData.sort((a, b) => {
+                    const va = a[currentSort.column].toLowerCase();
+                    const vb = b[currentSort.column].toLowerCase();
+                    return currentSort.direction === 'asc' ? (va < vb ? -1 : 1) : (va > vb ? -1 : 1);
+                });
+            }
+
+            renderTable();
+            updateStats();
+            updateClearButtons();
+        }
+
+        function updateClearButtons() {
+            document.getElementById('clearSearch').style.display = document.getElementById('searchInput').value ? 'block' : 'none';
+        }
+
+        function resetFilters() {
+            ['searchInput', 'berufFilter', 'kategorieFilter', 'slotFilter'].forEach(id => document.getElementById(id).value = '');
+            currentSort = { column: null, direction: 'asc' };
+            document.querySelectorAll('th').forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+            applyFilters();
+        }
+
+        function sortTable(col) {
+            if (currentSort.column === col) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = col;
+                currentSort.direction = 'asc';
+            }
+            document.querySelectorAll('th').forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+            document.querySelector(`th[data-column="${col}"]`)?.classList.add(currentSort.direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
+            applyFilters();
+        }
+
+        function exportData() {
+            const blob = new Blob([JSON.stringify({ timestamp: new Date().toISOString(), crafters: playerData }, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Crafters_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData() { document.getElementById('importFile').click(); }
+
+        async function handleImport(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(ev) {
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    if (data.crafters) {
+                        playerData = data.crafters;
+                        localStorage.setItem('voxDraconisCrafters', JSON.stringify(playerData));
+                        
+                        // Auch zu Firebase hochladen
+                        if (db && isOnline) {
+                            const craftersRef = window.firebaseDoc(db, 'crafting', 'crafters');
+                            await window.firebaseSetDoc(craftersRef, { 
+                                data: playerData, 
+                                updated: new Date().toISOString() 
+                            });
+                        }
+                        
+                        renderTable();
+                        alert('✅ Import erfolgreich!');
+                    }
+                } catch (err) { alert('❌ Fehler: ' + err.message); }
+            };
+            reader.readAsText(file);
+        }
+
+        function setupEvents() {
+            ['searchInput', 'berufFilter', 'kategorieFilter', 'slotFilter'].forEach(id => {
+                document.getElementById(id).addEventListener('input', applyFilters);
+                document.getElementById(id).addEventListener('change', applyFilters);
+            });
+            document.getElementById('clearSearch').onclick = () => { document.getElementById('searchInput').value = ''; applyFilters(); };
+            document.querySelectorAll('th.sortable').forEach(th => th.onclick = () => sortTable(th.dataset.column));
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
