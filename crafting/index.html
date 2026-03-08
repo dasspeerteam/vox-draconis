@@ -808,16 +808,32 @@
             
             if (!searchInput || !berufFilter || !katFilter || !slotFilter) return;
             
-            const search = searchInput.value.toLowerCase();
+            const search = searchInput.value.toLowerCase().trim();
             const beruf = berufFilter.value;
             const kat = katFilter.value;
             const slot = slotFilter.value;
 
+            // Filter mit UND-Verknüpfung (alle Bedingungen müssen erfüllt sein)
             currentData = CRAFTING_DATA.filter(item => {
-                return (!search || item.rezept.toLowerCase().includes(search) || item.notiz.toLowerCase().includes(search)) &&
-                       (!beruf || item.beruf === beruf) &&
-                       (!kat || item.kategorie === kat) &&
-                       (!slot || item.slot === slot);
+                // Suche in Rezept UND Notiz
+                const matchesSearch = !search || 
+                    item.rezept.toLowerCase().includes(search) || 
+                    item.notiz.toLowerCase().includes(search) ||
+                    item.beruf.toLowerCase().includes(search) ||
+                    item.kategorie.toLowerCase().includes(search) ||
+                    item.slot.toLowerCase().includes(search);
+                
+                // Beruf-Filter
+                const matchesBeruf = !beruf || item.beruf === beruf;
+                
+                // Kategorie-Filter
+                const matchesKat = !kat || item.kategorie === kat;
+                
+                // Slot-Filter
+                const matchesSlot = !slot || item.slot === slot;
+                
+                // Alle Bedingungen müssen erfüllt sein (UND)
+                return matchesSearch && matchesBeruf && matchesKat && matchesSlot;
             });
 
             if (currentSort.column) {
@@ -834,14 +850,36 @@
         }
 
         function updateClearButtons() {
-            document.getElementById('clearSearch').style.display = document.getElementById('searchInput').value ? 'block' : 'none';
+            const searchValue = document.getElementById('searchInput').value;
+            const clearBtn = document.getElementById('clearSearch');
+            if (clearBtn) {
+                clearBtn.style.display = searchValue ? 'block' : 'none';
+            }
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            updateClearButtons();
+            applyFilters();
         }
 
         function resetFilters() {
-            ['searchInput', 'berufFilter', 'kategorieFilter', 'slotFilter'].forEach(id => document.getElementById(id).value = '');
+            // Alle Filter zurücksetzen
+            document.getElementById('searchInput').value = '';
+            document.getElementById('berufFilter').value = '';
+            document.getElementById('kategorieFilter').value = '';
+            document.getElementById('slotFilter').value = '';
+            
+            // Sortierung zurücksetzen
             currentSort = { column: null, direction: 'asc' };
-            document.querySelectorAll('th').forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
-            applyFilters();
+            document.querySelectorAll('th.sortable').forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+            
+            // Daten neu initialisieren und anzeigen
+            currentData = [...CRAFTING_DATA];
+            
+            updateClearButtons();
+            renderTable();
+            updateStats();
         }
 
         function sortTable(col) {
@@ -897,12 +935,30 @@
         }
 
         function setupEvents() {
-            ['searchInput', 'berufFilter', 'kategorieFilter', 'slotFilter'].forEach(id => {
-                document.getElementById(id).addEventListener('input', applyFilters);
-                document.getElementById(id).addEventListener('change', applyFilters);
+            // Suche mit input-Event (Echtzeit)
+            document.getElementById('searchInput').addEventListener('input', () => {
+                updateClearButtons();
+                applyFilters();
             });
-            document.getElementById('clearSearch').onclick = () => { document.getElementById('searchInput').value = ''; applyFilters(); };
-            document.querySelectorAll('th.sortable').forEach(th => th.onclick = () => sortTable(th.dataset.column));
+            
+            // Dropdowns mit change-Event
+            ['berufFilter', 'kategorieFilter', 'slotFilter'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', applyFilters);
+                }
+            });
+            
+            // Clear-Search Button
+            const clearBtn = document.getElementById('clearSearch');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', clearSearch);
+            }
+            
+            // Sortierbare Spalten
+            document.querySelectorAll('th.sortable').forEach(th => {
+                th.addEventListener('click', () => sortTable(th.dataset.column));
+            });
         }
 
         document.addEventListener('DOMContentLoaded', init);
