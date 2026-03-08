@@ -589,8 +589,11 @@
         // ==================================================================
         // FIREBASE INITIALISIERUNG
         // ==================================================================
-        let db, playerData = {}, currentData = [...CRAFTING_DATA], currentSort = { column: null, direction: 'asc' };
+        let db, playerData = {}, currentSort = { column: null, direction: 'asc' };
         let isOnline = true;
+        
+        // WICHTIG: currentData erst nach DOM-Load initialisieren
+        let currentData = [];
 
         async function initFirebase() {
             try {
@@ -660,10 +663,16 @@
         // FUNKTIONEN
         // ==================================================================
         function init() {
+            // WICHTIG: currentData initialisieren
+            currentData = [...CRAFTING_DATA];
+            
             populateFilters();
-            applyFilters(); // Initial filtern und anzeigen
-            initFirebase();
             setupEvents();
+            initFirebase();
+            
+            // Daten anzeigen - expliziter Aufruf
+            renderTable();
+            updateStats();
         }
 
         function populateFilters() {
@@ -688,14 +697,24 @@
         function renderTable() {
             const tbody = document.getElementById('tableBody');
             const noResults = document.getElementById('noResults');
+            const countEl = document.getElementById('filteredCount');
             
-            if (!tbody) return; // Sicherheitscheck
+            if (!tbody) {
+                console.error('tableBody nicht gefunden!');
+                return;
+            }
             
-            document.getElementById('filteredCount').textContent = currentData.length;
+            // WICHTIG: Sicherstellen dass currentData existiert
+            if (!currentData || currentData.length === 0) {
+                console.log('Keine Daten vorhanden, initialisiere...');
+                currentData = [...CRAFTING_DATA];
+            }
+            
+            if (countEl) countEl.textContent = currentData.length;
 
             if (currentData.length === 0) {
-                tbody.innerHTML = '';
-                noResults.style.display = 'block';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;">Keine Daten gefunden</td></tr>';
+                if (noResults) noResults.style.display = 'block';
                 return;
             }
 
@@ -782,10 +801,17 @@
         }
 
         function applyFilters() {
-            const search = document.getElementById('searchInput').value.toLowerCase();
-            const beruf = document.getElementById('berufFilter').value;
-            const kat = document.getElementById('kategorieFilter').value;
-            const slot = document.getElementById('slotFilter').value;
+            const searchInput = document.getElementById('searchInput');
+            const berufFilter = document.getElementById('berufFilter');
+            const katFilter = document.getElementById('kategorieFilter');
+            const slotFilter = document.getElementById('slotFilter');
+            
+            if (!searchInput || !berufFilter || !katFilter || !slotFilter) return;
+            
+            const search = searchInput.value.toLowerCase();
+            const beruf = berufFilter.value;
+            const kat = katFilter.value;
+            const slot = slotFilter.value;
 
             currentData = CRAFTING_DATA.filter(item => {
                 return (!search || item.rezept.toLowerCase().includes(search) || item.notiz.toLowerCase().includes(search)) &&
